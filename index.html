@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tirage" />
+  <meta name="theme-color" content="#0d0d14" />
+  <title>Tirage au Sort</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{background:#0d0d14;min-height:100dvh;font-family:Georgia,serif;color:#f0e6c8;overflow-x:hidden}
+    .bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 20% 20%,rgba(180,140,60,.13) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(100,60,180,.1) 0%,transparent 60%)}
+    #app{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:24px 16px 80px}
+    header{text-align:center;margin-bottom:24px}
+    .badge{display:inline-block;background:linear-gradient(90deg,#b8962e,#e8c96a,#b8962e);color:#0d0d14;font-size:11px;letter-spacing:.25em;font-weight:700;padding:4px 18px;border-radius:2px;margin-bottom:10px}
+    header h1{font-size:clamp(26px,6vw,44px);font-weight:400;color:#f0e6c8;letter-spacing:.12em;margin-bottom:6px}
+    .week-label{color:#b8962e;font-size:13px;letter-spacing:.2em}
+    nav{display:flex;gap:5px;margin-bottom:20px;background:rgba(255,255,255,.04);border-radius:10px;padding:4px}
+    nav button{flex:1;padding:10px 4px;background:transparent;border:none;color:#777;cursor:pointer;border-radius:7px;font-size:13px;font-family:Georgia,serif;transition:all .2s}
+    nav button.active{background:rgba(184,150,46,.18);color:#e8c96a;font-weight:700}
+    .panel{background:rgba(255,255,255,.04);border:1px solid rgba(184,150,46,.2);border-radius:14px;padding:24px 18px}
+    .panel.hidden{display:none}
+    .drum-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:24px}
+    .drum-outer{width:150px;height:150px;border-radius:50%;background:linear-gradient(135deg,rgba(184,150,46,.25),rgba(184,150,46,.05));border:2px solid rgba(184,150,46,.4);display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(184,150,46,.15),inset 0 0 30px rgba(0,0,0,.4)}
+    .drum-inner{width:122px;height:122px;border-radius:50%;background:#12121f;border:1px solid rgba(184,150,46,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .08s}
+    .drum-inner.pulse{transform:scale(.96)}
+    #drum-num{font-size:54px;font-weight:700;color:#e8c96a;line-height:1;font-family:Georgia,serif}
+    #drum-idle{font-size:40px;color:rgba(184,150,46,.3)}
+    #drum-counter{font-size:11px;color:#b8962e;letter-spacing:.15em;margin-top:4px}
+    .slots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px;margin-bottom:18px}
+    .slot{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:78px;transition:all .3s}
+    .slot.filled{border-color:rgba(184,150,46,.4);background:rgba(184,150,46,.07)}
+    .slot.active{border-color:rgba(184,150,46,.85);box-shadow:0 0 16px rgba(184,150,46,.22)}
+    .slot-idx{font-size:10px;color:#555;letter-spacing:.15em;font-family:monospace}
+    .slot-num{font-size:22px;font-weight:700;color:#e8c96a;line-height:1.1}
+    .slot-name{font-size:11px;color:#bbb;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .slot-empty{font-size:20px;color:rgba(255,255,255,.1);margin-top:6px}
+    .already-info{background:rgba(184,150,46,.1);border:1px solid rgba(184,150,46,.25);border-radius:8px;padding:10px 14px;font-size:13px;color:#e8c96a;margin-bottom:14px;text-align:center}
+    .already-info.hidden{display:none}
+    #draw-btn{width:100%;padding:15px;background:linear-gradient(135deg,#b8962e,#e8c96a);color:#0d0d14;border:none;border-radius:10px;font-size:15px;font-family:Georgia,serif;font-weight:700;letter-spacing:.1em;cursor:pointer;transition:opacity .2s}
+    #draw-btn:disabled{opacity:.5;cursor:not-allowed}
+    .hint{color:#555;font-size:12px;text-align:center;margin-top:10px;font-style:italic}
+    #search-box{width:100%;padding:9px 12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(184,150,46,.2);border-radius:8px;color:#f0e6c8;font-size:13px;font-family:Georgia,serif;outline:none}
+    #search-box::placeholder{color:#555}
+    .participants-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:7px;max-height:460px;overflow-y:auto;padding-right:2px}
+    .p-card{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px}
+    .p-card.drawn-card{border-color:rgba(184,150,46,.35);background:rgba(184,150,46,.06)}
+    .p-num{font-size:11px;color:#b8962e;font-weight:700;min-width:28px;font-family:monospace}
+    .p-name{font-size:13px;color:#ccc;flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .p-name:hover{color:#e8c96a}
+    .p-input{font-size:13px;color:#f0e6c8;background:rgba(184,150,46,.12);border:1px solid #b8962e;border-radius:4px;padding:2px 6px;flex:1;outline:none;font-family:Georgia,serif;min-width:0}
+    .p-check{font-size:12px;color:#b8962e}
+    .p-del{font-size:13px;color:#c55;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
+    .p-del:hover{color:#f55}
+    .hist-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+    .hist-row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 13px}
+    .hist-week{font-size:11px;color:#b8962e;letter-spacing:.1em;font-family:monospace;margin-bottom:6px}
+    .hist-badges{display:flex;flex-wrap:wrap;gap:5px}
+    .hist-badge{font-size:11px;color:#e8c96a;background:rgba(184,150,46,.12);border:1px solid rgba(184,150,46,.2);border-radius:5px;padding:2px 7px}
+    #reset-btn{width:100%;padding:10px;background:rgba(180,60,60,.15);border:1px solid rgba(180,60,60,.3);color:#e88;border-radius:8px;cursor:pointer;font-size:13px;font-family:Georgia,serif}
+    .ie-row{display:flex;gap:8px;margin-top:14px}
+    .ie-btn{flex:1;padding:9px;border-radius:8px;cursor:pointer;font-size:12px;font-family:Georgia,serif;border:1px solid rgba(184,150,46,.3);background:rgba(184,150,46,.08);color:#e8c96a}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(184,150,46,.25);border-radius:4px}
+    @keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+    .slot.filled .slot-num{animation:popIn .25s ease}
+  </style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div id="app">
+  <header>
+    <div class="badge">ALFnash19</div>
+    <h1>TIRAGE AU SORT</h1>
+    <div class="week-label" id="week-display"></div>
+  </header>
+  <nav>
+    <button class="active" onclick="showTab('tirage')">🎯 Tirage</button>
+    <button onclick="showTab('liste')">👥 Membres</button>
+    <button onclick="showTab('historique')">📋 Historique</button>
+  </nav>
+  <div id="tab-tirage" class="panel">
+    <div class="drum-wrap">
+      <div class="drum-outer">
+        <div class="drum-inner" id="drum-inner">
+          <span id="drum-num" style="display:none"></span>
+          <span id="drum-idle">✦</span>
+          <span id="drum-counter" style="display:none"></span>
+        </div>
+      </div>
+    </div>
+    <div class="slots-grid" id="slots-grid"></div>
+    <div class="already-info hidden" id="already-info"></div>
+    <button id="draw-btn" onclick="startDraw()">🎰 Lancer le tirage</button>
+    <p class="hint">Les membres tirés récemment sont temporairement écartés (4 semaines).</p>
+  </div>
+  <div id="tab-liste" class="panel hidden">
+    <input type="text" id="search-box" placeholder="🔍 Rechercher un membre…" oninput="renderParticipants()" />
+    <div class="participants-grid" id="participants-grid"></div>
+    <div id="add-member-row" style="display:flex;gap:8px;margin-top:12px">
+      <input type="text" id="new-member-name" placeholder="Pseudo du nouveau membre…" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(184,150,46,.3);border-radius:8px;color:#f0e6c8;font-size:13px;font-family:Georgia,serif;outline:none" />
+      <button onclick="addMember()" style="padding:9px 14px;background:linear-gradient(135deg,#b8962e,#e8c96a);color:#0d0d14;border:none;border-radius:8px;font-size:13px;font-family:Georgia,serif;font-weight:700;cursor:pointer">+ Ajouter</button>
+    </div>
+    <div class="ie-row">
+      <button class="ie-btn" onclick="exportNames()">⬇ Exporter</button>
+      <button class="ie-btn" onclick="document.getElementById('import-file').click()">⬆ Importer (.txt)</button>
+      <input type="file" id="import-file" accept=".txt" style="display:none" onchange="importNames(event)" />
+    </div>
+  </div>
+  <div id="tab-historique" class="panel hidden">
+    <div class="hist-list" id="hist-list"></div>
+    <div class="ie-row" style="margin-bottom:10px">
+      <button class="ie-btn" onclick="exportBackup()">💾 Sauvegarder</button>
+      <button class="ie-btn" onclick="document.getElementById('restore-file').click()">📂 Restaurer</button>
+      <input type="file" id="restore-file" accept=".json" style="display:none" onchange="importBackup(event)" />
+    </div>
+    <p style="color:#555;font-size:11px;text-align:center;font-style:italic;margin-bottom:12px">Sauvegarde = fichier .json à conserver précieusement 🔐</p>
+    <button id="reset-btn" onclick="resetHistory()">🗑 Effacer l'historique</button>
+  </div>
+</div>
+<script>
+const STORAGE_KEY='tirage_alfnash_v1';
+
+const DEFAULT_NAMES=[
+  {id:1,name:"MrSkySx"},
+  {id:2,name:"Poildeuk"},
+  {id:3,name:"MastOrc"},
+  {id:4,name:"Lola10150"},
+  {id:5,name:"maître dark xdptdr"},
+  {id:6,name:"1Pile"},
+  {id:7,name:"laety57"},
+  {id:8,name:"IncisioN"},
+  {id:9,name:"Titak"},
+  {id:10,name:"Rudiger69"},
+  {id:11,name:"Glox 67"},
+  {id:12,name:"Stainless09"},
+  {id:13,name:"angie88"},
+  {id:14,name:"DARK KNIF"},
+  {id:15,name:"Catosh"},
+  {id:16,name:"Muzan"},
+  {id:17,name:"Myinetis2kb"},
+  {id:18,name:"Carlosmolo"},
+  {id:19,name:"Jojo10600"},
+  {id:20,name:"CLO CLO"},
+  {id:21,name:"Flapixi"},
+  {id:22,name:"Ramstaleviking"},
+  {id:23,name:"Yaswai"},
+  {id:24,name:"Happy End"},
+  {id:25,name:"Blckmack"},
+  {id:26,name:"SUHAIB B"},
+  {id:27,name:"Sce Biggy"},
+  {id:28,name:"grab44"},
+  {id:29,name:"Hèla"},
+  {id:30,name:"ovvaa"},
+  {id:31,name:"Tacconi56"},
+  {id:32,name:"Mh181801"},
+  {id:33,name:"Most Hat3d"},
+  {id:34,name:"nessu666"},
+  {id:35,name:"Oseluis1"},
+  {id:36,name:"Malian555"},
+  {id:37,name:"Doc Hanniiball"},
+  {id:38,name:"ALEJO10"},
+  {id:39,name:"Sunny 85"},
+  {id:40,name:"Tusco1"},
+  {id:41,name:"Loudvik"},
+  {id:42,name:"HAWSAY1411"},
+  {id:43,name:"SPQR 9178"},
+  {id:44,name:"Van Losh"},
+  {id:45,name:"Queen Misscc of N8W"},
+  {id:46,name:"fraiseman"},
+  {id:47,name:"Racaillon"},
+  {id:48,name:"vanpeup"},
+  {id:49,name:"Nathis77"},
+  {id:50,name:"DevilSpirit 15"},
+  {id:51,name:"Shadowhunt07"},
+  {id:52,name:"DOCRITON"},
+  {id:53,name:"maxDCS"},
+  {id:54,name:"Lokitopower"},
+  {id:55,name:"Zynkial"},
+  {id:56,name:"Jalood"},
+  {id:57,name:"black Beard"},
+  {id:58,name:"Alain13600"},
+  {id:59,name:"Copykill"},
+  {id:60,name:"Mercenaire80"},
+  {id:61,name:"Komutanlogarkapağı"},
+  {id:62,name:"geste13"},
+  {id:63,name:"Lours14"},
+  {id:64,name:"jimandmy"},
+  {id:65,name:"Medeit"},
+  {id:66,name:"Faboss91"},
+  {id:67,name:"M Mns"},
+  {id:68,name:"FabLux"},
+  {id:69,name:"ＺＯＲＯッ"},
+  {id:70,name:"ALFnash19"}
+];
+
+let state=loadState(),animating=false,itvRef=null;
+
+function loadState(){
+  try{const r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r)}catch(e){}
+  return{names:DEFAULT_NAMES.map(n=>({...n})),history:{}};
+}
+function saveState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){}}
+function getWeekKey(){const n=new Date(),j=new Date(n.getFullYear(),0,1),w=Math.ceil(((n-j)/86400000+j.getDay()+1)/7);return`${n.getFullYear()}-S${String(w).padStart(2,'0')}`}
+
+const weekKey=getWeekKey();
+document.getElementById('week-display').textContent=weekKey.replace('-',' · ');
+
+function showTab(name){
+  ['tirage','liste','historique'].forEach(t=>{document.getElementById('tab-'+t).classList.toggle('hidden',t!==name)});
+  document.querySelectorAll('nav button').forEach((b,i)=>{b.classList.toggle('active',['tirage','liste','historique'][i]===name)});
+  if(name==='liste')renderParticipants();
+  if(name==='historique')renderHistory();
+}
+
+function renderSlots(drawn,activeSlot,isAnim){
+  const g=document.getElementById('slots-grid');g.innerHTML='';
+  for(let i=0;i<7;i++){
+    const w=drawn[i],isActive=isAnim&&activeSlot===i,d=document.createElement('div');
+    d.className='slot'+(w?' filled':'')+(isActive?' active':'');
+    d.innerHTML=`<span class="slot-idx">N°${i+1}</span>${w?`<span class="slot-num">#${w.id}</span><span class="slot-name">${w.name}</span>`:'<span class="slot-empty">—</span>'}`;
+    g.appendChild(d);
+  }
+}
+
+function pickWinners(){
+  const recent=Object.values(state.history).flat().slice(-28).map(w=>w?.id);
+  let pool=state.names.filter(n=>!recent.includes(n.id));
+  if(pool.length<7)pool=[...state.names];
+  return pool.sort(()=>Math.random()-.5).slice(0,7);
+}
+
+function startDraw(){
+  if(animating)return;
+  animating=true;
+  document.getElementById('already-info').classList.add('hidden');
+  const btn=document.getElementById('draw-btn');btn.disabled=true;
+  const di=document.getElementById('drum-inner'),dn=document.getElementById('drum-num'),
+        dil=document.getElementById('drum-idle'),dc=document.getElementById('drum-counter');
+  dil.style.display='none';dn.style.display='block';dc.style.display='block';
+  const winners=pickWinners();
+
+  function animateSlot(idx,acc){
+    if(idx>=7){
+      animating=false;dn.style.display='none';dc.style.display='none';
+      dil.textContent='✦';dil.style.display='block';di.classList.remove('pulse');
+      renderSlots(acc,-1,false);state.history[weekKey]=winners;saveState();
+      btn.disabled=false;btn.textContent='↺ Nouveau tirage';showAlreadyInfo();return;
+    }
+    dc.textContent=`${idx+1} / 7`;renderSlots(acc,idx,true);
+    let count=0,total=18+idx*4;
+    itvRef=setInterval(()=>{
+      count++;di.classList.toggle('pulse',count%2===0);
+      dn.textContent=state.names[Math.floor(Math.random()*state.names.length)].id;
+      if(count>=total){
+        clearInterval(itvRef);di.classList.remove('pulse');
+        const na=[...acc,winners[idx]];renderSlots(na,idx+1,true);
+        setTimeout(()=>animateSlot(idx+1,na),450);
+      }
+    },75);
+  }
+  animateSlot(0,[]);
+}
+
+function showAlreadyInfo(){
+  const d=state.history[weekKey];
+  if(d&&d.length){
+    const b=document.getElementById('already-info');
+    b.textContent=`✅ Tirage enregistré — ${weekKey} — ${d.length} membres`;
+    b.classList.remove('hidden');
+  }
+}
+
+function renderParticipants(){
+  const q=document.getElementById('search-box').value.toLowerCase();
+  const allDrawn=Object.values(state.history).flat().map(w=>w?.id);
+  const g=document.getElementById('participants-grid');g.innerHTML='';
+  state.names.filter(n=>n.name.toLowerCase().includes(q)||String(n.id).includes(q)).forEach(n=>{
+    const wd=allDrawn.includes(n.id),c=document.createElement('div');
+    c.className='p-card'+(wd?' drawn-card':'');
+    c.innerHTML=`<span class="p-num">#${n.id}</span><span class="p-name" onclick="editName(${n.id},this)">${n.name}</span>${wd?'<span class="p-check">✓</span>':''}<span class="p-del" onclick="deleteMember(${n.id})" title="Supprimer">✕</span>`;    g.appendChild(c);
+  });
+}
+
+function editName(id,el){
+  const cur=el.textContent,inp=document.createElement('input');
+  inp.className='p-input';inp.value=cur;el.replaceWith(inp);inp.focus();inp.select();
+  function commit(){const v=inp.value.trim()||cur;state.names=state.names.map(n=>n.id===id?{...n,name:v}:n);saveState();renderParticipants()}
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur()});
+}
+
+function deleteMember(id){
+  const n=state.names.find(n=>n.id===id);
+  if(!n)return;
+  if(!confirm(`Supprimer "${n.name}" (#${n.id}) ?`))return;
+  state.names=state.names.filter(n=>n.id!==id);
+  saveState();renderParticipants();
+}
+
+function addMember(){
+  const inp=document.getElementById('new-member-name');
+  const name=inp.value.trim();
+  if(!name){inp.focus();return;}
+  const newId=Math.max(...state.names.map(n=>n.id))+1;
+  state.names.push({id:newId,name});
+  saveState();
+  inp.value='';
+  renderParticipants();
+  // scroll to bottom of grid to show new member
+  const g=document.getElementById('participants-grid');
+  g.scrollTop=g.scrollHeight;
+}
+
+function exportNames(){
+  const blob=new Blob([state.names.map(n=>`${n.id};${n.name}`).join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='membres_alfnash.txt';a.click();
+}
+
+function importNames(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const u=[...state.names];
+    ev.target.result.split('\n').filter(Boolean).forEach(l=>{
+      const[i,...p]=l.split(';'),id=parseInt(i),name=p.join(';').trim();
+      if(id>=1&&id<=70&&name){const x=u.findIndex(n=>n.id===id);if(x>=0)u[x]={...u[x],name}}
+    });
+    state.names=u;saveState();renderParticipants();
+  };
+  r.readAsText(f);e.target.value='';
+}
+
+function renderHistory(){
+  const l=document.getElementById('hist-list');l.innerHTML='';
+  const entries=Object.entries(state.history).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!entries.length){l.innerHTML='<p style="color:#555;font-style:italic;text-align:center;font-size:13px">Aucun tirage enregistré.</p>';return}
+  entries.forEach(([week,winners])=>{
+    const arr=Array.isArray(winners)?winners:[winners],row=document.createElement('div');
+    row.className='hist-row';
+    row.innerHTML=`<div class="hist-week">${week.replace('-',' · ')}</div><div class="hist-badges">${arr.map(w=>`<span class="hist-badge">#${w.id} ${w.name}</span>`).join('')}</div>`;
+    l.appendChild(row);
+  });
+}
+
+function resetHistory(){
+  if(confirm("Effacer tout l'historique des tirages ?")){
+    state.history={};saveState();renderSlots([],-1,false);
+    document.getElementById('already-info').classList.add('hidden');
+    document.getElementById('draw-btn').textContent='🎰 Lancer le tirage';
+    renderHistory();
+  }
+}
+
+function exportBackup(){
+  const backup={version:2,date:new Date().toISOString(),names:state.names,history:state.history};
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  const d=new Date();
+  const ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  a.href=URL.createObjectURL(blob);a.download=`tirage_backup_${ds}.json`;a.click();
+}
+
+function importBackup(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const b=JSON.parse(ev.target.result);
+      if(!b.history)throw new Error('Format invalide');
+      if(b.names&&Array.isArray(b.names))state.names=b.names;
+      state.history=b.history;
+      saveState();
+      renderHistory();
+      renderSlots([],-1,false);
+      document.getElementById('already-info').classList.add('hidden');
+      document.getElementById('draw-btn').textContent='🎰 Lancer le tirage';
+      if(state.history[weekKey]){
+        document.getElementById('draw-btn').textContent='↺ Nouveau tirage';
+        showAlreadyInfo();renderSlots(state.history[weekKey],-1,false);
+      }
+      alert('✅ Sauvegarde restaurée avec succès !');
+    }catch(err){alert('❌ Fichier invalide. Utilise un fichier .json généré par cette appli.');}
+  };
+  r.readAsText(f);e.target.value='';
+}
+
+// PWA manifest inline
+const manifest={name:'Tirage ALFnash19',short_name:'Tirage',start_url:'.',display:'standalone',background_color:'#0d0d14',theme_color:'#0d0d14',orientation:'portrait',icons:[{src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%230d0d14'/%3E%3Ccircle cx='256' cy='256' r='200' fill='none' stroke='%23b8962e' stroke-width='18'/%3E%3Ctext x='256' y='310' font-size='180' text-anchor='middle' fill='%23e8c96a' font-family='Georgia'%3E7%3C/text%3E%3C/svg%3E",sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+const mBlob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+const mLink=document.createElement('link');mLink.rel='manifest';mLink.href=URL.createObjectURL(mBlob);document.head.appendChild(mLink);
+
+// Init
+renderSlots([],-1,false);
+if(state.history[weekKey]){
+  document.getElementById('draw-btn').textContent='↺ Nouveau tirage';
+  showAlreadyInfo();renderSlots(state.history[weekKey],-1,false);
+}
+
+// Enregistrement du Service Worker pour permettre l'installation
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Service Worker enregistré !'))
+      .catch(err => console.log('Erreur SW:', err));
+  });
+}
+</script>
+</body>
+</html>
